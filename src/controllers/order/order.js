@@ -6,14 +6,45 @@ import { Customer, DeliveryPartner } from "../../models/user.js";
 export const createOrder = async(req,reply)=>{
     try {
         const {userId}=req.user;
-        const { items, branch, totalPrice} = req.body
-        
-        const customerData= await Customer.findById(userId)
-        const branchData = await Branch.findById(branch)
+    const { items, branch, totalPrice, deliveryLocation: reqDeliveryLocation, pickupLocation: reqPickupLocation } = req.body;
+
+    const customerData = await Customer.findById(userId);
+    const branchData = await Branch.findById(branch);
 
         if(!customerData){
            return reply.status(404).send({ message: "Customer not found" });
         }
+
+    if (!branchData) {
+      return reply.status(404).send({ message: "Branch not found" });
+    }
+
+    // validate items
+    if (!Array.isArray(items) || items.length === 0) {
+      return reply.status(400).send({ message: "Items are required to create an order" });
+    }
+
+    // build deliveryLocation: prefer request-provided, then customer's liveLocation
+    const deliveryLocation = reqDeliveryLocation ?? (customerData.liveLocation && (customerData.liveLocation.latitude != null || customerData.liveLocation.longitude != null) ? {
+      latitude: customerData.liveLocation.latitude,
+      longitude: customerData.liveLocation.longitude,
+      address: customerData.address || "No address available",
+    } : null);
+
+    if (!deliveryLocation) {
+      return reply.status(400).send({ message: "Delivery location is missing" });
+    }
+
+    // build pickupLocation: prefer request-provided, then branch location
+    const pickupLocation = reqPickupLocation ?? (branchData.location && (branchData.location.latitude != null || branchData.location.longitude != null) ? {
+      latitude: branchData.location.latitude,
+      longitude: branchData.location.longitude,
+      address: branchData.address || "No address available",
+    } : null);
+
+    if (!pickupLocation) {
+      return reply.status(400).send({ message: "Pickup location (branch) is missing" });
+    }
 
         const newOrder = new Order({
             customer:userId,
@@ -24,16 +55,8 @@ export const createOrder = async(req,reply)=>{
             })),
             branch,
             totalPrice,
-            deliveryLocation:{
-                latitude: customerData.liveLocation.latitude,
-                longitude: customerData.liveLocation.longitude,
-                address: customerData.address || "No address available",
-            },
-            pickupLocation: {
-                latitude: branchData.location.latitude,
-                longitude: branchData.location.longitude,
-                address: branchData.address || "No address available",
-              },
+      deliveryLocation: deliveryLocation,
+      pickupLocation: pickupLocation,
         });
 
         let savedOrder = await newOrder.save();
