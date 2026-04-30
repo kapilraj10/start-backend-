@@ -46,10 +46,11 @@ export const createOrder = async(req,reply)=>{
       latitude: customerData.liveLocation.latitude,
       longitude: customerData.liveLocation.longitude,
       address: customerData.address || "No address available",
-    } : null);
+    } : (customerData.address ? { address: customerData.address } : null));
 
-    if (!deliveryLocation) {
-      return reply.status(400).send({ message: "Delivery location is missing" });
+    // If still no deliveryLocation, allow creation only if address present
+    if (!deliveryLocation || (!deliveryLocation.latitude && !deliveryLocation.longitude && !deliveryLocation.address)) {
+      return reply.status(400).send({ message: "Delivery location is missing or incomplete" });
     }
 
     // build pickupLocation: prefer request-provided, then branch location
@@ -57,10 +58,10 @@ export const createOrder = async(req,reply)=>{
       latitude: branchData.location.latitude,
       longitude: branchData.location.longitude,
       address: branchData.address || "No address available",
-    } : null);
+    } : (branchData.address ? { address: branchData.address } : null));
 
-    if (!pickupLocation) {
-      return reply.status(400).send({ message: "Pickup location (branch) is missing" });
+    if (!pickupLocation || (!pickupLocation.latitude && !pickupLocation.longitude && !pickupLocation.address)) {
+      return reply.status(400).send({ message: "Pickup location (branch) is missing or incomplete" });
     }
 
         const newOrder = new Order({
@@ -70,7 +71,7 @@ export const createOrder = async(req,reply)=>{
                 item:item.item,
                 count:item.count
             })),
-            branch,
+            branch: branchData._id,
             totalPrice,
       deliveryLocation: deliveryLocation,
       pickupLocation: pickupLocation,

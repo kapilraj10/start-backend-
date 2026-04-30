@@ -36,13 +36,13 @@ const orderSchema= new mongoose.Schema({
         },
       ],
       deliveryLocation: {
-        latitude: { type: Number, required: true },
-        longitude: { type: Number, required: true },
+        latitude: { type: Number },
+        longitude: { type: Number },
         address: { type: String },
       },
       pickupLocation: {
-        latitude: { type: Number, required: true },
-        longitude: { type: Number, required: true },
+        latitude: { type: Number },
+        longitude: { type: Number },
         address: { type: String },
       },
       deliveryPersonLocation: {
