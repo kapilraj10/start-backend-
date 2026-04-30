@@ -9,7 +9,24 @@ export const createOrder = async(req,reply)=>{
     const { items, branch, totalPrice, deliveryLocation: reqDeliveryLocation, pickupLocation: reqPickupLocation } = req.body;
 
     const customerData = await Customer.findById(userId);
-    const branchData = await Branch.findById(branch);
+    // Try resolving branch in multiple ways to be tolerant to client payloads
+    let branchData = null;
+    try {
+      // if branch looks like an id or is an object with _id
+      if (branch && typeof branch === 'object' && branch._id) {
+        branchData = await Branch.findById(branch._id);
+      } else if (branch) {
+        branchData = await Branch.findById(branch);
+      }
+    } catch (e) {
+      // ignore invalid ObjectId format errors
+      branchData = null;
+    }
+
+    // fallback: if branchData not found and branch is a string, try matching by name
+    if (!branchData && branch && typeof branch === 'string') {
+      branchData = await Branch.findOne({ name: branch });
+    }
 
         if(!customerData){
            return reply.status(404).send({ message: "Customer not found" });
